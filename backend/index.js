@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
 const passport = require('passport');
+const { getDriveFiles, getFileContent } = require('./drive');
 
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
@@ -28,7 +29,8 @@ passport.use(
         callbackURL: '/auth/callback'
     },
     (accessToken, refreshToken, profile, done) => {
-        return done(null, profile);
+        const user = { ...profile, accessToken};
+        return done(null, user);
     })
 )
 
@@ -69,6 +71,24 @@ app.get("/auth/logout", (req, res) => {
 
 app.get("/auth/user", (req, res) => {
   res.json({ user: req.user ? req.user : null });
+});
+
+app.get("/drive/files", async (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const files = await getDriveFiles(req.user.accessToken);
+  res.json({ files });
+});
+
+app.get("/drive/file/:id", async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+  const fileContent = await getFileContent(req.user.accessToken, req.params.id);
+  if (!fileContent) return res.status(500).json({ error: "Failed to read file" });
+
+  res.json({ content: fileContent });
 });
 
 app.listen(3000, () => console.log("Server running on port 3000"));
