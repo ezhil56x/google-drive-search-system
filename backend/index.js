@@ -1,11 +1,13 @@
 require("dotenv").config();
 const express = require("express");
+
 const cors = require("cors");
 const session = require("express-session");
 const passport = require("passport");
-const { getDriveFiles, getFileContent } = require("./drive");
-const { upsertToPinecone, searchInPinecone } = require("./pinecone");
-const { generateEmbedding } = require("./openai");
+
+const { getDriveFiles, getFileContent } = require("./lib/drive");
+const { upsertToPinecone, searchInPinecone } = require("./lib/pinecone");
+const { generateEmbedding } = require("./lib/openai");
 
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
@@ -50,6 +52,7 @@ passport.deserializeUser((obj, done) => {
   done(null, obj);
 });
 
+// Google OAuth routes
 app.get(
   "/auth/google",
   passport.authenticate("google", {
@@ -89,49 +92,68 @@ app.get("/auth/user", (req, res) => {
   res.json({ user: req.user ? req.user : null });
 });
 
+// Google Drive routes
 app.get("/drive/files", async (req, res) => {
   if (!req.user) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  const files = await getDriveFiles(req.user.accessToken);
-  res.json({ files });
+  try {
+    const files = await getDriveFiles(req.user.accessToken);
+    res.json({ files });
+  } catch (error) {
+    console.error("Failed to fetch files:", error);
+    res.status(500).json({ error: "Failed to fetch files" });
+  }
 });
 
 app.get("/drive/file/:id", async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-  const fileContent = await getFileContent(req.user.accessToken, req.params.id);
-  if (!fileContent)
-    return res.status(500).json({ error: "Failed to read file" });
+  try {
+    const fileContent = await getFileContent(
+      req.user.accessToken,
+      req.params.id
+    );
+    if (!fileContent)
+      return res.status(500).json({ error: "Failed to read file" });
 
-  res.json({ content: fileContent });
+    res.json({ content: fileContent });
+  } catch (error) {
+    console.error("Failed to fetch file content:", error);
+    res.status(500).json({ error: "Failed to fetch file content" });
+  }
 });
 
 app.post("/ingest/:fileId", async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
-  const { fileId } = req.params;
-  const files = await getDriveFiles(req.user.accessToken);
-  const file = files.find((f) => f.id === fileId);
+  try {
+    const { fileId } = req.params;
+    const files = await getDriveFiles(req.user.accessToken);
+    const file = files.find((f) => f.id === fileId);
 
-  if (!file) return res.status(404).json({ error: "File not found" });
+    if (!file) return res.status(404).json({ error: "File not found" });
 
-  const content = await getFileContent(req.user.accessToken, fileId);
-  if (!content)
-    return res.status(500).json({ error: "Failed to fetch content" });
+    const content = await getFileContent(req.user.accessToken, fileId);
+    if (!content)
+      return res.status(500).json({ error: "Failed to fetch content" });
 
-  const embedding = await generateEmbedding(content);
-  console.log("ingest-Embedding:", embedding);
+    const embedding = await generateEmbedding(content);
+    console.log("ingest-Embedding:", embedding);
 
-  await upsertToPinecone(fileId, embedding, {
-    title: file.name,
-    owner: file.owner,
-    modifiedTime: file.modifiedTime,
-    fileId: file.id,
-  });
+    await upsertToPinecone(fileId, embedding, {
+      title: file.name,
+      owner: file.owner,
+      modifiedTime: file.modifiedTime,
+      fileId: file.id,
+    });
 
-  res.json({ message: `File '${file.name}' ingested successfully!` });
+    res.json({ message: `File '${file.name}' ingested successfully!` });
+  } catch (error) {
+    console.error("Ingest error:", error);
+    res.status(500).json({ error: "Failed to ingest file" });
+  }
 });
 
 app.get("/search", async (req, res) => {
