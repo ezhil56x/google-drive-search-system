@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import axios from "axios";
 import { BACKEND_API_URL } from "../lib/consts";
+import SearchComponent from "../components/SearchComponent";
 
 const Dashboard = () => {
   interface User {
@@ -12,7 +13,6 @@ const Dashboard = () => {
   const [user, setUser] = useState<User | null>(null);
   const [files, setFiles] = useState<any[]>([]);
   const [fileContent, setFileContent] = useState<string | null>(null);
-
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,6 +57,19 @@ const Dashboard = () => {
     }
   };
 
+  const ingestFile = async (fileId: string) => {
+    try {
+      const response = await axios.post(
+        `${BACKEND_API_URL}/ingest/${fileId}`,
+        {},
+        { withCredentials: true }
+      );
+      console.log("Ingested file", response.data);
+    } catch (error) {
+      console.error("Failed to ingest file", error);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await axios.get(`${BACKEND_API_URL}/auth/logout`, {
@@ -69,46 +82,73 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="p-4">
+    <div className="p-6 max-w-4xl mx-auto h-[80hv]">
       {user ? (
-        <div>
-          <h1>Welcome, {user.displayName}!</h1>
+        <div className="bg-white shadow-lg rounded-lg p-6">
+          <h1 className="text-2xl font-semibold text-gray-800">
+            Welcome, {user.displayName}!
+          </h1>
+
+          <div className="mt-6">
+            <SearchComponent />
+          </div>
+
           <button
-            className="mt-4 px-4 py-2 bg-green-500 text-white rounded"
+            className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
             onClick={fetchFiles}
           >
             Fetch Google Drive Files
           </button>
 
-          <ul className="mt-4">
+          <ul className="mt-6 space-y-4">
             {files.map((file) => (
-              <li key={file.id} className="p-2 border-b">
-                <strong>{file.name}</strong> - {file.owners[0].displayName} -{" "}
-                {new Date(file.modifiedTime).toLocaleString()}
-                <button
-                  className="ml-4 px-2 py-1 bg-blue-500 text-white rounded"
-                  onClick={() => fetchFileContent(file.id)}
-                >
-                  View Content
-                </button>
+              <li
+                key={file.id}
+                className="p-4 bg-gray-50 border rounded-lg flex justify-between items-center shadow-sm"
+              >
+                <div>
+                  <p className="text-lg font-medium">{file.name}</p>
+                  <p className="text-sm text-gray-500">
+                    {file.owner} •{" "}
+                    {new Date(file.modifiedTime).toLocaleString()}
+                  </p>
+                </div>
+                <div className="space-x-2">
+                  <button
+                    className="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
+                    onClick={() => fetchFileContent(file.id)}
+                  >
+                    View Content
+                  </button>
+                  <button
+                    className="px-3 py-1 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600"
+                    onClick={() => ingestFile(file.id)}
+                  >
+                    Ingest
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
+
           {fileContent && (
-            <div className="mt-4 p-4 border">
-              <h2 className="text-lg font-bold">File Content:</h2>
-              <pre className="whitespace-pre-wrap">{fileContent}</pre>
+            <div className="mt-6 p-4 border bg-gray-100 rounded-lg shadow">
+              <h2 className="text-lg font-semibold">File Content:</h2>
+              <pre className="text-sm text-gray-700 whitespace-pre-wrap">
+                {fileContent}
+              </pre>
             </div>
           )}
+
           <button
-            className="mt-4 px-4 py-2 bg-red-500 text-white rounded"
+            className="mt-6 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
             onClick={handleLogout}
           >
             Logout
           </button>
         </div>
       ) : (
-        <p>Loading...</p>
+        <p className="text-center text-lg text-gray-600">Loading...</p>
       )}
     </div>
   );

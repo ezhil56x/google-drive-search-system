@@ -4,6 +4,8 @@ const cors = require("cors");
 const session = require("express-session");
 const passport = require("passport");
 const { getDriveFiles, getFileContent } = require("./drive");
+const { upsertToPinecone, searchInPinecone } = require("./pinecone");
+const { generateEmbedding } = require("./openai");
 
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
@@ -104,6 +106,50 @@ app.get("/drive/file/:id", async (req, res) => {
     return res.status(500).json({ error: "Failed to read file" });
 
   res.json({ content: fileContent });
+});
+
+app.post("/ingest/:fileId", async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+
+  const { fileId } = req.params;
+  const files = await getDriveFiles(req.user.accessToken);
+  const file = files.find((f) => f.id === fileId);
+
+  if (!file) return res.status(404).json({ error: "File not found" });
+
+  const content = await getFileContent(req.user.accessToken, fileId);
+  if (!content)
+    return res.status(500).json({ error: "Failed to fetch content" });
+
+  const embedding = await generateEmbedding(content);
+  console.log("ingest-Embedding:", embedding);
+
+  await upsertToPinecone(fileId, embedding, {
+    title: file.name,
+    owner: file.owner,
+    modifiedTime: file.modifiedTime,
+    fileId: file.id,
+  });
+
+  res.json({ message: `File '${file.name}' ingested successfully!` });
+});
+
+app.get("/search", async (req, res) => {
+  const query = req.query.q;
+  if (!query) return res.status(400).json({ error: "Query is required" });
+
+  try {
+    const queryEmbedding = await generateEmbedding(query);
+    console.log("search-Query embedding:", queryEmbedding);
+
+    const results = await searchInPinecone(queryEmbedding);
+    console.log("search-Search results:", results);
+
+    res.json(results);
+  } catch (error) {
+    console.error("Search error:", error);
+    res.status(500).json({ error: "Failed to perform search" });
+  }
 });
 
 app.listen(3000, () => console.log("Server running on port 3000"));
