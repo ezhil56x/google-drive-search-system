@@ -125,6 +125,7 @@ app.get("/drive/file/:id", async (req, res) => {
   }
 });
 
+// Pinecone routes
 app.post("/ingest/:fileId", async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Unauthorized" });
 
