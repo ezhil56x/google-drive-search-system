@@ -1,6 +1,6 @@
-import OpenAI from "openai";
+const OpenAI = require("openai");
 
-export async function generateEmbedding(text) {
+async function generateEmbedding(text) {
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   });
@@ -12,3 +12,5 @@ export async function generateEmbedding(text) {
 
   return embedding.data[0].embedding;
 }
+
+module.exports = { generateEmbedding };
