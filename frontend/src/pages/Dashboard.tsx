@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import axios from "axios";
 import { BACKEND_API_URL } from "../lib/consts";
 import SearchComponent from "../components/SearchComponent";
+import RenderContent from "../components/RenderContent";
 
 const Dashboard = () => {
   interface User {
@@ -10,8 +11,18 @@ const Dashboard = () => {
     displayName: string;
   }
 
+  interface File {
+    id: string;
+    name: string;
+    modifiedTime: string;
+    owners: {
+      displayName: string;
+    }[];
+  }
+
   const [user, setUser] = useState<User | null>(null);
-  const [files, setFiles] = useState<any[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -70,6 +81,12 @@ const Dashboard = () => {
     }
   };
 
+  const ingestAllFiles = async () => {
+    for (const file of files) {
+      await ingestFile(file.id);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await axios.get(`${BACKEND_API_URL}/auth/logout`, {
@@ -82,74 +99,109 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto h-[80hv]">
-      {user ? (
-        <div className="bg-white shadow-lg rounded-lg p-6">
-          <h1 className="text-2xl font-semibold text-gray-800">
-            Welcome, {user.displayName}!
-          </h1>
+    <div className="bg-gray-900 min-h-screen">
+      <div className="p-6 max-w-4xl mx-auto min-h-[80vh]">
+        {user ? (
+          <div className="bg-gray-800 rounded-lg p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-2xl font-semibold text-white">
+                Welcome, {user.displayName}!
+              </h1>
 
-          <div className="mt-6">
-            <SearchComponent />
-          </div>
-
-          <button
-            className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-            onClick={fetchFiles}
-          >
-            Fetch Google Drive Files
-          </button>
-
-          <ul className="mt-6 space-y-4">
-            {files.map((file) => (
-              <li
-                key={file.id}
-                className="p-4 bg-gray-50 border rounded-lg flex justify-between items-center shadow-sm"
+              <button
+                className="py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-red-500 text-white hover:bg-red-600 focus:outline-none focus:bg-red-600 disabled:opacity-50 disabled:pointer-events-none"
+                onClick={handleLogout}
               >
-                <div>
-                  <p className="text-lg font-medium">{file.name}</p>
-                  <p className="text-sm text-gray-500">
-                    {file.owner} •{" "}
-                    {new Date(file.modifiedTime).toLocaleString()}
-                  </p>
-                </div>
-                <div className="space-x-2">
-                  <button
-                    className="px-3 py-1 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600"
-                    onClick={() => fetchFileContent(file.id)}
-                  >
-                    View Content
-                  </button>
-                  <button
-                    className="px-3 py-1 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600"
-                    onClick={() => ingestFile(file.id)}
-                  >
-                    Ingest
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-
-          {fileContent && (
-            <div className="mt-6 p-4 border bg-gray-100 rounded-lg shadow">
-              <h2 className="text-lg font-semibold">File Content:</h2>
-              <pre className="text-sm text-gray-700 whitespace-pre-wrap">
-                {fileContent}
-              </pre>
+                Logout
+              </button>
             </div>
-          )}
 
-          <button
-            className="mt-6 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
-            onClick={handleLogout}
-          >
-            Logout
-          </button>
-        </div>
-      ) : (
-        <p className="text-center text-lg text-gray-600">Loading...</p>
-      )}
+            <div className="flex justify-between items-center mb-6 mt-6">
+              <button
+                className="py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-teal-700 text-white hover:bg-teal-800 focus:outline-none focus:bg-teal-800 disabled:opacity-50 disabled:pointer-events-none"
+                onClick={fetchFiles}
+              >
+                Fetch Google Drive Files
+              </button>
+
+              <button
+                className="py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-teal-700 text-white hover:bg-teal-800 focus:outline-none focus:bg-teal-800 disabled:opacity-50 disabled:pointer-events-none"
+                onClick={ingestAllFiles}
+              >
+                Ingest All Files
+              </button>
+            </div>
+
+            <div className="mt-6">
+              <SearchComponent />
+            </div>
+
+            {files.length > 0 && (
+              <h2 className="text-xl mb-6 text-gray-200">
+                Files in Google Drive
+              </h2>
+            )}
+
+            <ul className="space-y-4">
+              {files.map((file) => (
+                <li
+                  key={file.id}
+                  className="p-4 bg-gray-700 rounded-lg flex flex-col shadow-sm"
+                >
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-lg font-medium text-gray-200 mb-1">
+                        {file.name}
+                      </p>
+                      <p className="text-sm text-gray-400">
+                        {file.owners[0].displayName}
+                        {" - "}
+                        {new Date(file.modifiedTime).toLocaleString("en-GB")}
+                      </p>
+                    </div>
+                    <div className="space-x-2">
+                      <button
+                        className="py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-gray-500 text-white hover:bg-gray-600 focus:outline-none focus:bg-gray-600 disabled:opacity-50 disabled:pointer-events-none"
+                        onClick={() => {
+                          if (selectedFile === file.name) {
+                            setSelectedFile(null);
+                            setFileContent(null);
+                          } else {
+                            setFileContent(null);
+                            fetchFileContent(file.id);
+                            setSelectedFile(file.name);
+                          }
+                        }}
+                      >
+                        {selectedFile === file.name
+                          ? "Hide Content"
+                          : "View Content"}
+                      </button>
+                      <button
+                        className="py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-teal-700 text-white hover:bg-teal-800 focus:outline-none focus:bg-teal-800 disabled:opacity-50 disabled:pointer-events-none"
+                        onClick={() => ingestFile(file.id)}
+                      >
+                        Ingest
+                      </button>
+                    </div>
+                  </div>
+
+                  {selectedFile === file.name && fileContent && (
+                    <div className="mt-4 p-4 bg-gray-800 rounded-lg">
+                      <RenderContent
+                        selectedFile={selectedFile!}
+                        fileContent={fileContent}
+                      />
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="text-center text-lg text-gray-600">Loading...</p>
+        )}
+      </div>
     </div>
   );
 };

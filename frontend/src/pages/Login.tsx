@@ -2,12 +2,10 @@ import axios from "axios";
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { BACKEND_API_URL } from "../lib/consts";
+import SignInGoogle from "../components/SignInGoogle";
 
 const Login = () => {
   const navigate = useNavigate();
-  const handleLogin = () => {
-    window.location.href = `${BACKEND_API_URL}/auth/google`;
-  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -27,13 +25,11 @@ const Login = () => {
   }, []);
 
   return (
-    <div className="flex h-screen justify-center items-center">
-      <button
-        className="px-4 py-2 bg-blue-500 text-white rounded"
-        onClick={handleLogin}
-      >
-        Sign in with Google
-      </button>
+    <div className="flex flex-col h-screen justify-center items-center bg-gray-900 pb-48">
+      <h1 className="text-white text-4xl font-bold mb-8">
+        Google Drive Powered Search System
+      </h1>
+      <SignInGoogle />
     </div>
   );
 };
